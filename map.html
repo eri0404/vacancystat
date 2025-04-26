@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dormitory Map with Layers and Distance</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet Control Layers CSS (for layers control) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-layers/dist/leaflet-control-layers.css" />
+  
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<!-- Leaflet Google Layer -->
+<script src="https://unpkg.com/leaflet-gridlayer-googlemutant"></script>
+
+<script>
+// Initialize the map and set the center to PSAU (update coordinates for PSAU gate if necessary)
+const map = L.map('map').setView([15.1503, 120.6562], 15); // Example center: PSAU area
+
+// Add OpenStreetMap baselayer
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+});
+
+// Add Google Satellite Layer
+const googleSatLayer = L.gridLayer.googleMutant({
+  type: 'satellite'
+});
+
+// Define PSAU Gate Location (Change this to the correct GPS of PSAU Gate)
+const psauGate = L.latLng(15.1503, 120.6562);
+
+// Add Layers Control
+L.control.layers({
+  "OpenStreetMap": osmLayer,
+  "Google Satellite": googleSatLayer
+}).addTo(map);
+
+// Add PSAU Gate marker
+L.marker(psauGate).addTo(map)
+  .bindPopup("<b>PSAU Gate</b><br>PSAU Main Entrance");
+
+// Fetch CSV data
+const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQRwwQ1M6kEM44Jgb1t5gjBEhlUPa8D_SdgOT9aN4RSfzJM7v_vvk2dQVRw0Qwe0-wZaqQDrTmupDQg/pub?output=csv'; // Replace this with your actual CSV URL
+
+fetch(csvUrl)
+  .then(response => response.text())
+  .then(csvData => {
+    const data = parseCSV(csvData);
+    addDormitoryMarkers(data);
+  })
+  .catch(error => console.error('Error fetching CSV data:', error));
+
+// Parse CSV data into an array of objects
+function parseCSV(csv) {
+  const rows = csv.split('\n');
+  const headers = rows[0].split(','); // Extract the column headers
+  const dormitories = [];
+
+  rows.slice(1).forEach(row => {
+    const values = row.split(',');
+    const dorm = {};
+    headers.forEach((header, i) => {
+      dorm[header] = values[i];
+    });
+    dormitories.push(dorm);
+  });
+  return dormitories;
+}
+
+// Add dormitory markers to the map
+function addDormitoryMarkers(dormitories) {
+  dormitories.forEach(dorm => {
+    // Skip empty data (we'll only add dorms that have latitude, longitude, and dorm name)
+    if (!dorm['Latitude'] || !dorm['Longitude'] || !dorm['Dorm Name']) {
+      return;
+    }
+
+    const dormLocation = [parseFloat(dorm['Latitude']), parseFloat(dorm['Longitude'])];
+    const marker = L.marker(dormLocation)
+      .addTo(map)
+      .bindPopup(generatePopupContent(dorm));
+
+    // Calculate and show distance from PSAU Gate
+    const distance = psauGate.distanceTo(dormLocation); // Distance in meters
+    marker.bindPopup(marker.getPopup().getContent() + `<br><br>Distance from PSAU Gate: ${Math.round(distance)} meters`);
+  });
+}
+
+// Generate popup content for dormitory
+function generatePopupContent(dorm) {
+  let popupContent = `<b>${dorm['Dorm Name']}</b><br>`;
+  if (dorm['Contact Number']) popupContent += `Contact: ${dorm['Contact Number']}<br>`;
+  if (dorm['Available Bed Space - for GIRLS']) popupContent += `Girls Bed: ${dorm['Available Bed Space - for GIRLS']}<br>`;
+  if (dorm['Available Bed Space - for BOYS']) popupContent += `Boys Bed: ${dorm['Available Bed Space - for BOYS']}<br>`;
+  if (dorm['Available Solo Room - for GIRLS']) popupContent += `Solo Room for Girls: ${dorm['Available Solo Room - for GIRLS']}<br>`;
+  if (dorm['Available Solo Room - for BOYS']) popupContent += `Solo Room for Boys: ${dorm['Available Solo Room - for BOYS']}<br>`;
+  if (dorm['Available Shared Room - for GIRLS']) popupContent += `Shared Room for Girls: ${dorm['Available Shared Room - for GIRLS']}<br>`;
+  if (dorm['Available Shared Room - for BOYS']) popupContent += `Shared Room for Boys: ${dorm['Available Shared Room - for BOYS']}<br>`;
+  return popupContent;
+}
+</script>
+
+</body>
+</html>
